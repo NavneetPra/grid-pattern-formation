@@ -40,22 +40,37 @@ class TrajectoryGenerator(object):
         self.border_region = 0.03  # meters
 
         # Initialize variables
-        position = np.zeros([batch_size, samples + 2, 2])
-        head_dir = np.zeros([batch_size, samples + 2])
+        if str(self.options.device) == 'mps':
+            position = np.zeros([batch_size, samples + 2, 2], dtype=np.float32)
+            head_dir = np.zeros([batch_size, samples + 2], dtype=np.float32)
+        else:
+            position = np.zeros([batch_size, samples + 2, 2])
+            head_dir = np.zeros([batch_size, samples + 2])
         position[:, 0, 0] = np.random.uniform(-box_width / 2, box_width / 2, batch_size)
         position[:, 0, 1] = np.random.uniform(-box_height / 2, box_height / 2, batch_size)
         head_dir[:, 0] = np.random.uniform(0, 2 * np.pi, batch_size)
-        velocity = np.zeros([batch_size, samples + 2])
+        if str(self.options.device) == 'mps':
+            velocity = np.zeros([batch_size, samples + 2], dtype=np.float32)
+        else:
+            velocity = np.zeros([batch_size, samples + 2])
 
         # Generate sequence of random boosts and turns
-        random_turn = np.random.normal(mu, sigma, [batch_size, samples + 1])
-        random_vel = np.random.rayleigh(b, [batch_size, samples + 1])
-        v = np.abs(np.random.normal(0, b * np.pi / 2, batch_size))
+        if str(self.options.device) == 'mps':
+            random_turn = np.random.normal(mu, sigma, [batch_size, samples + 1]).astype(np.float32)
+            random_vel = np.random.rayleigh(b, [batch_size, samples + 1]).astype(np.float32)
+            v = np.abs(np.random.normal(0, b * np.pi / 2, batch_size)).astype(np.float32)
+        else:
+            random_turn = np.random.normal(mu, sigma, [batch_size, samples + 1])
+            random_vel = np.random.rayleigh(b, [batch_size, samples + 1])
+            v = np.abs(np.random.normal(0, b * np.pi / 2, batch_size))
 
         for t in range(samples + 1):
             # Update velocity
             v = random_vel[:, t]
-            turn_angle = np.zeros(batch_size)
+            if str(self.options.device) == 'mps':
+                turn_angle = np.zeros(batch_size, dtype=np.float32)
+            else:
+                turn_angle = np.zeros(batch_size)
 
             if not self.options.periodic:
                 # If in border region, turn and slow down
@@ -67,7 +82,10 @@ class TrajectoryGenerator(object):
 
             # Take a step
             velocity[:, t] = v * dt
-            update = velocity[:, t, None] * np.stack([np.cos(head_dir[:, t]), np.sin(head_dir[:, t])], axis=-1)
+            if str(self.options.device) == 'mps':
+                update = velocity[:, t, None] * np.stack([np.cos(head_dir[:, t]), np.sin(head_dir[:, t])], axis=-1).astype(np.float32)
+            else:
+                update = velocity[:, t, None] * np.stack([np.cos(head_dir[:, t]), np.sin(head_dir[:, t])], axis=-1)
             position[:, t + 1] = position[:, t] + update
 
             # Rotate head direction

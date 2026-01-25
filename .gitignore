@@ -13,6 +13,8 @@ ben_100*/
 data/
 nohup.out
 
+models/
+
 # C extensions
 *.so
 

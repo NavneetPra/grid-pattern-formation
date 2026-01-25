@@ -21,7 +21,10 @@ class PlaceCells(object):
         np.random.seed(0)
         usx = np.random.uniform(-self.box_width/2, self.box_width/2, (self.Np,))
         usy = np.random.uniform(-self.box_width/2, self.box_width/2, (self.Np,))
-        self.us = torch.tensor(np.vstack([usx, usy]).T)
+        if str(self.device) == 'mps':
+            self.us = torch.tensor(np.vstack([usx, usy]).T, dtype=torch.float32)
+        else:
+            self.us = torch.tensor(np.vstack([usx, usy]).T)
         # If using a GPU, put on GPU
         self.us = self.us.to(self.device)
         # self.us = torch.tensor(np.load('models/example_pc_centers.npy')).cuda()
@@ -98,10 +101,14 @@ class PlaceCells(object):
 
     def compute_covariance(self, res=30):
         '''Compute spatial covariance matrix of place cell outputs'''
-        pos = np.array(np.meshgrid(np.linspace(-self.box_width/2, self.box_width/2, res),
-                         np.linspace(-self.box_height/2, self.box_height/2, res))).T
-
-        pos = torch.tensor(pos)
+        if str(self.device) == 'mps':
+            pos = np.array(np.meshgrid(np.linspace(-self.box_width/2, self.box_width/2, res),
+                             np.linspace(-self.box_height/2, self.box_height/2, res)), dtype=np.float32).T
+            pos = torch.tensor(pos, dtype=torch.float32)
+        else:
+            pos = np.array(np.meshgrid(np.linspace(-self.box_width/2, self.box_width/2, res),
+                             np.linspace(-self.box_height/2, self.box_height/2, res))).T
+            pos = torch.tensor(pos)
 
         # Put on GPU if available
         pos = pos.to(self.device)

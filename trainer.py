@@ -65,7 +65,7 @@ class Trainer(object):
         gen = self.trajectory_generator.get_generator()
 
         # tbar = tqdm(range(n_steps), leave=False)
-        for epoch_idx in range(n_epochs):
+        for epoch_idx in range(1, n_epochs + 1):
             for step_idx in range(n_steps):
                 inputs, pc_outputs, pos = next(gen)
                 loss, err = self.train_step(inputs, pc_outputs, pos)
@@ -79,7 +79,7 @@ class Trainer(object):
                     epoch_idx, n_epochs, step_idx, n_steps,
                     np.round(loss, 2), np.round(100 * err, 2)))
 
-            if save:
+            if save and (epoch_idx % 500 == 0 or epoch_idx == 1):
                 # Save checkpoint
                 ckpt_path = os.path.join(self.ckpt_dir, 'epoch_{}.pth'.format(epoch_idx))
                 torch.save(self.model.state_dict(), ckpt_path)

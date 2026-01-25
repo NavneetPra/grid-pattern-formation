@@ -30,16 +30,32 @@ import scipy.ndimage as ndimage
 def circle_mask(size, radius, in_val=1.0, out_val=0.0):
   """Calculating the grid scores with different radius."""
   sz = [math.floor(size[0] / 2), math.floor(size[1] / 2)]
-  x = np.linspace(-sz[0], sz[1], size[1])
-  x = np.expand_dims(x, 0)
-  x = x.repeat(size[0], 0)
-  y = np.linspace(-sz[0], sz[1], size[1])
-  y = np.expand_dims(y, 1)
-  y = y.repeat(size[1], 1)
-  z = np.sqrt(x**2 + y**2)
-  z = np.less_equal(z, radius)
-  vfunc = np.vectorize(lambda b: b and in_val or out_val)
-  return vfunc(z)
+  import torch
+  device = None
+  if hasattr(globals().get('options', None), 'device'):
+    device = str(options.device)
+  if device == 'mps':
+    x = np.linspace(-sz[0], sz[1], size[1], dtype=np.float32)
+    x = np.expand_dims(x, 0)
+    x = x.repeat(size[0], 0)
+    y = np.linspace(-sz[0], sz[1], size[1], dtype=np.float32)
+    y = np.expand_dims(y, 1)
+    y = y.repeat(size[1], 1)
+    z = np.sqrt(x**2 + y**2)
+    z = np.less_equal(z, radius)
+    vfunc = np.vectorize(lambda b: b and in_val or out_val)
+    return vfunc(z).astype(np.float32)
+  else:
+    x = np.linspace(-sz[0], sz[1], size[1])
+    x = np.expand_dims(x, 0)
+    x = x.repeat(size[0], 0)
+    y = np.linspace(-sz[0], sz[1], size[1])
+    y = np.expand_dims(y, 1)
+    y = y.repeat(size[1], 1)
+    z = np.sqrt(x**2 + y**2)
+    z = np.less_equal(z, radius)
+    vfunc = np.vectorize(lambda b: b and in_val or out_val)
+    return vfunc(z)
 
 
 class GridScorer(object):

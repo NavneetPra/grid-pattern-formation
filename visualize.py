@@ -10,7 +10,7 @@ import cv2
 
 def concat_images(images, image_width, spacer_size):
     """ Concat image horizontally with spacer """
-    spacer = np.ones([image_width, spacer_size, 4], dtype=np.uint8) * 255
+    spacer = np.ones([image_width, spacer_size, 4], dtype=np.uint8) * 255  # image, keep uint8
     images_with_spacers = []
 
     image_size = len(images)
@@ -28,7 +28,7 @@ def concat_images_in_rows(images, row_size, image_width, spacer_size=4):
     """ Concat images in rows """
     column_size = len(images) // row_size
     spacer_h = np.ones([spacer_size, image_width*column_size + (column_size-1)*spacer_size, 4],
-                       dtype=np.uint8) * 255
+                       dtype=np.uint8) * 255  # image, keep uint8
 
     row_images_with_spacers = []
 

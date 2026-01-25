@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 def generate_run_ID(options):
@@ -43,17 +44,34 @@ def get_2d_sort(x1,x2):
 
 
 def dft(N,real=False,scale='sqrtn'):
+    import torch
+    device = None
+    if hasattr(globals().get('options', None), 'device'):
+        device = str(options.device)
     if not real:
-        return scipy.linalg.dft(N,scale)
+        if device == 'mps':
+            return scipy.linalg.dft(N,scale).astype(np.complex64)
+        else:
+            return scipy.linalg.dft(N,scale)
     else:
-        cosines = np.cos(2*np.pi*np.arange(N//2+1)[None,:]/N*np.arange(N)[:,None])
-        sines = np.sin(2*np.pi*np.arange(1,(N-1)//2+1)[None,:]/N*np.arange(N)[:,None])
-        if N%2==0:
-            cosines[:,-1] /= np.sqrt(2)
-        F = np.concatenate((cosines,sines[:,::-1]),1)
-        F[:,0] /= np.sqrt(N)
-        F[:,1:] /= np.sqrt(N/2)
-        return F
+        if device == 'mps':
+            cosines = np.cos(2*np.pi*np.arange(N//2+1)[None,:]/N*np.arange(N)[:,None]).astype(np.float32)
+            sines = np.sin(2*np.pi*np.arange(1,(N-1)//2+1)[None,:]/N*np.arange(N)[:,None]).astype(np.float32)
+            if N%2==0:
+                cosines[:,-1] /= np.sqrt(2)
+            F = np.concatenate((cosines,sines[:,::-1]),1)
+            F[:,0] /= np.sqrt(N)
+            F[:,1:] /= np.sqrt(N/2)
+            return F.astype(np.float32)
+        else:
+            cosines = np.cos(2*np.pi*np.arange(N//2+1)[None,:]/N*np.arange(N)[:,None])
+            sines = np.sin(2*np.pi*np.arange(1,(N-1)//2+1)[None,:]/N*np.arange(N)[:,None])
+            if N%2==0:
+                cosines[:,-1] /= np.sqrt(2)
+            F = np.concatenate((cosines,sines[:,::-1]),1)
+            F[:,0] /= np.sqrt(N)
+            F[:,1:] /= np.sqrt(N/2)
+            return F
 
 
 def skaggs_power(Jsort):
@@ -119,15 +137,12 @@ def compute_variance(res, n_avg):
                 
     return variance
 
-
 def load_trained_weights(model, trainer, weight_dir):
-    ''' Load weights stored as a .npy file (for github)'''
+    ''' Load weights stored as a .pth file (PyTorch state_dict) '''
+    trainer.train(n_epochs=1, n_steps=1, save=False)  # initialize model weights
 
-    # Train for a single step to initialize weights
-    trainer.train(n_epochs=1, n_steps=1, save=False)
-
-    # Load weights from npy array
-    weights = np.load(weight_dir, allow_pickle=True)
-    model.set_weights(weights)
+    # Choose device for loading
+    device = model.options.device if hasattr(model, 'options') else 'cpu'
+    state_dict = torch.load(weight_dir, map_location=device)
+    model.load_state_dict(state_dict)
     print('Loaded trained weights.')
-

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import numpy as np
 import torch
 
 class RNN(torch.nn.Module):
@@ -11,13 +12,21 @@ class RNN(torch.nn.Module):
         self.place_cells = place_cells
 
         # Input weights
-        self.encoder = torch.nn.Linear(self.Np, self.Ng, bias=False)
-        self.RNN = torch.nn.RNN(input_size=2,
-                                hidden_size=self.Ng,
-                                nonlinearity=options.activation,
-                                bias=False)
-        # Linear read-out weights
-        self.decoder = torch.nn.Linear(self.Ng, self.Np, bias=False)
+        if str(options.device) == 'mps':
+            self.encoder = torch.nn.Linear(self.Np, self.Ng, bias=False, dtype=torch.float32)
+            self.RNN = torch.nn.RNN(input_size=2,
+                                    hidden_size=self.Ng,
+                                    nonlinearity=options.activation,
+                                    bias=False,
+                                    dtype=torch.float32)
+            self.decoder = torch.nn.Linear(self.Ng, self.Np, bias=False, dtype=torch.float32)
+        else:
+            self.encoder = torch.nn.Linear(self.Np, self.Ng, bias=False)
+            self.RNN = torch.nn.RNN(input_size=2,
+                                    hidden_size=self.Ng,
+                                    nonlinearity=options.activation,
+                                    bias=False)
+            self.decoder = torch.nn.Linear(self.Ng, self.Np, bias=False)
         
         self.softmax = torch.nn.Softmax(dim=-1)
 
