@@ -12,7 +12,11 @@ class Trainer(object):
         self.model = model
         self.trajectory_generator = trajectory_generator
         lr = self.options.learning_rate
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        if hasattr(self.options, 'paper') and self.options.paper:
+            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=lr)
+        else:
+            #self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=lr)
 
         self.loss = []
         self.err = []
@@ -51,6 +55,29 @@ class Trainer(object):
         self.optimizer.step()
 
         return loss.item(), err.item()
+    
+    def train_step_topo(self, inputs, pc_outputs, pos, smooth_lambda, distance_lambda):
+        ''' 
+        Train on one batch of trajectories.
+
+        Args:
+            inputs: Batch of 2d velocity inputs with shape [batch_size, sequence_length, 2].
+            pc_outputs: Ground truth place cell activations with shape 
+                [batch_size, sequence_length, Np].
+            pos: Ground truth 2d position with shape [batch_size, sequence_length, 2].
+
+        Returns:
+            loss: Avg. loss for this training batch.
+            err: Avg. decoded position error in cm.
+        '''
+        self.model.zero_grad()
+
+        loss, err = self.model.compute_loss_topo(inputs, pc_outputs, pos, smooth_lambda, distance_lambda)
+
+        loss.backward()
+        self.optimizer.step()
+
+        return loss.item(), err.item()
 
     def train(self, n_epochs: int = 1000, n_steps=10, save=True):
         ''' 
@@ -69,6 +96,50 @@ class Trainer(object):
             for step_idx in range(n_steps):
                 inputs, pc_outputs, pos = next(gen)
                 loss, err = self.train_step(inputs, pc_outputs, pos)
+                self.loss.append(loss)
+                self.err.append(err)
+
+                # Log error rate to progress bar
+                # tbar.set_description('Error = ' + str(np.int(100*err)) + 'cm')
+
+                print('Epoch: {}/{}. Step {}/{}. Loss: {}. Err: {}cm'.format(
+                    epoch_idx, n_epochs, step_idx, n_steps,
+                    np.round(loss, 2), np.round(100 * err, 2)))
+
+            if save and (epoch_idx % 500 == 0 or epoch_idx == 1):
+                # Save checkpoint
+                ckpt_path = os.path.join(self.ckpt_dir, 'epoch_{}.pth'.format(epoch_idx))
+                torch.save(self.model.state_dict(), ckpt_path)
+                torch.save(self.model.state_dict(), os.path.join(self.ckpt_dir,
+                                                                 'most_recent_model.pth'))
+
+                # Save a picture of rate maps
+                save_ratemaps(self.model, self.trajectory_generator,
+                              self.options, step=epoch_idx)
+                
+    def train_topo(self, n_epochs: int = 1000, n_steps=10, save=True, smooth_lambda=1.0, distance_lambda=1.0):
+        ''' 
+        Train model on simulated trajectories.
+
+        Args:
+            n_steps: Number of training steps
+            save: If true, save a checkpoint after each epoch.
+        '''
+
+        # Construct generator
+        gen = self.trajectory_generator.get_generator()
+
+        # tbar = tqdm(range(n_steps), leave=False)
+        for epoch_idx in range(1, n_epochs + 1):
+            for step_idx in range(n_steps):
+                inputs, pc_outputs, pos = next(gen)
+
+                min_lambda = smooth_lambda * 0.1
+                ep = epoch_idx if epoch_idx < 100000 else 100000
+                progress = ep / 100000
+                lambda_val = min_lambda + (smooth_lambda - min_lambda) * 0.5 * (1 + np.cos(np.pi * progress))
+                
+                loss, err = self.train_step_topo(inputs, pc_outputs, pos, lambda_val, distance_lambda)
                 self.loss.append(loss)
                 self.err.append(err)
 

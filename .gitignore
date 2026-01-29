@@ -14,6 +14,12 @@ data/
 nohup.out
 
 models/
+models_topo/
+models_topo_no_distance/
+models_topo_low_distance/
+models_topo_no_distance_cosine/
+models_topo_no_smooth/
+models_paper/
 
 # C extensions
 *.so
@@ -118,5 +124,5 @@ venv.bak/
 
 # by user
 saved
-*.ipynb
+#*.ipynb
 *.zip
